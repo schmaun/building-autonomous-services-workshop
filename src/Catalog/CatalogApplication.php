@@ -2,8 +2,10 @@
 
 namespace Catalog;
 
+use Common\MessageTypes;
 use Common\Persistence\Database;
 use Common\Render;
+use Common\Stream\Stream;
 
 final class CatalogApplication
 {
@@ -21,11 +23,19 @@ final class CatalogApplication
             );
             Database::persist($product);
 
+            Stream::produce(
+                MessageTypes::PRODUCT_CREATED,
+                [
+                    'id' => $product->id(),
+                    'name' => $product->name(),
+                ]
+            );
+
             header('Location: /listProducts');
             exit;
         }
 
-        include __DIR__ . '/../Common/header.php';
+        include __DIR__.'/../Common/header.php';
 
         ?>
         <h1>Create a product</h1>
@@ -40,7 +50,7 @@ final class CatalogApplication
         </form>
         <?php
 
-        include __DIR__ . '/../Common/footer.php';
+        include __DIR__.'/../Common/footer.php';
     }
 
     public function listProductsController(): void
