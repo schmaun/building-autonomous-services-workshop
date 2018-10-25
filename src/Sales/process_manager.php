@@ -48,9 +48,7 @@ Stream::consume(
         }
 
         if ($messageType === MessageTypes::SALES_ORDER_CREATED) {
-            echo json_encode($data);
-
-            $result = HttpApi::postFormData(
+            HttpApi::postFormData(
                 'http://stock_web/makeStockReservation',
                 [
                     'reservationId' => $data['salesOrderId'],
@@ -58,7 +56,6 @@ Stream::consume(
                     'quantity' => $data['quantity'],
                 ]
             );
-            echo json_encode($result);
         }
 
         if ($messageType === MessageTypes::RESERVATION_ACCEPTED) {
