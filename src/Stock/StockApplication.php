@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Stock;
 
+use Common\Persistence\Database;
 use Common\Render;
-use Common\Web\HttpApi;
 
 final class StockApplication
 {
@@ -19,22 +19,11 @@ final class StockApplication
     {
         $stockLevels = [];
 
-        $purchaseOrders = HttpApi::fetchDecodedJsonResponse('http://purchase_web/listPurchaseOrders');
-        foreach ($purchaseOrders as $purchaseOrder) {
-            if (!$purchaseOrder->received) {
-                continue;
-            }
+        /** @var Balance[] $balances */
+        $balances = Database::retrieveAll(Balance::class);
 
-            $stockLevels[$purchaseOrder->productId] = ($stockLevels[$purchaseOrder->productId] ?? 0) + $purchaseOrder->quantity;
-        }
-
-        $salesOrders = HttpApi::fetchDecodedJsonResponse('http://sales_web/listSalesOrders');
-        foreach ($salesOrders as $salesOrder) {
-            if (!$salesOrder->wasDelivered) {
-                continue;
-            }
-
-            $stockLevels[$salesOrder->productId] = ($stockLevels[$salesOrder->productId] ?? 0) - $salesOrder->quantity;
+        foreach ($balances as $balance) {
+            $stockLevels[$balance->id()] = $balance->stockLevel();
         }
 
         return $stockLevels;

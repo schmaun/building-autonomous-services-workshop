@@ -24,3 +24,9 @@ services:
             file: docker/templates.yml
             service: php-cli
         command: php src/Common/process_manager.php
+
+    process_manager_stock:
+        extends:
+            file: docker/templates.yml
+            service: php-cli
+        command: php src/Stock/process_manager.php

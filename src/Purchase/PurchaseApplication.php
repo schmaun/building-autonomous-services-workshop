@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 namespace Purchase;
 
+use Common\MessageTypes;
 use Common\Persistence\Database;
 use Common\Render;
+use Common\Stream\Stream;
 use Common\Web\FlashMessage;
 
 final class PurchaseApplication
@@ -25,7 +27,7 @@ final class PurchaseApplication
 
             Database::persist($purchaseOrder);
 
-            FlashMessage::add(FlashMessage::SUCCESS, 'Created purchase order ' . $purchaseOrderId);
+            FlashMessage::add(FlashMessage::SUCCESS, 'Created purchase order '.$purchaseOrderId);
 
             header('Location: /listPurchaseOrders');
             exit;
@@ -34,7 +36,7 @@ final class PurchaseApplication
         /** @var Product[] $products */
         $products = Database::retrieveAll(Product::class);
 
-        include __DIR__ . '/../Common/header.php';
+        include __DIR__.'/../Common/header.php';
 
         ?>
         <h1>Create a purchase order</h1>
@@ -47,7 +49,9 @@ final class PurchaseApplication
                     <?php
                     foreach ($products as $product) {
                         ?>
-                        <option value="<?php echo $product->id(); ?>"><?php echo htmlspecialchars($product->name()); ?></option>
+                        <option value="<?php echo $product->id(); ?>"><?php echo htmlspecialchars(
+                                $product->name()
+                            ); ?></option>
                         <?php
                     }
                     ?>
@@ -57,7 +61,8 @@ final class PurchaseApplication
                 <label for="quantity">
                     Quantity
                 </label>
-                <input type="text" name="quantity" id="quantity" value="" class="form-control quantity" title="Provide a quantity"/>
+                <input type="text" name="quantity" id="quantity" value="" class="form-control quantity"
+                       title="Provide a quantity"/>
             </div>
             <div class="btn-group">
                 <button type="submit" class="btn btn-primary">Order</button>
@@ -65,7 +70,7 @@ final class PurchaseApplication
         </form>
         <?php
 
-        include __DIR__ . '/../Common/footer.php';
+        include __DIR__.'/../Common/footer.php';
     }
 
     public function listPurchaseOrdersController(): void
@@ -83,20 +88,33 @@ final class PurchaseApplication
 
             $purchaseOrder->markAsReceived();
 
-            FlashMessage::add(FlashMessage::SUCCESS, 'Marked purchase order as received: ' . $_POST['purchaseOrderId']);
+            FlashMessage::add(FlashMessage::SUCCESS, 'Marked purchase order as received: '.$_POST['purchaseOrderId']);
 
             Database::persist($purchaseOrder);
+
+            Stream::produce(
+                MessageTypes::PURCHASE_ORDER_RECEIVED,
+                [
+                    'orderId' => $purchaseOrder->id(),
+                    'productId' => $purchaseOrder->productId(),
+                    'quantity' => $purchaseOrder->quantity(),
+                ]
+            );
+
 
             header('Location: /listPurchaseOrders');
             exit;
         }
 
-        include __DIR__ . '/../Common/header.php';
+        include __DIR__.'/../Common/header.php';
 
         $purchaseOrders = Database::retrieveAll(PurchaseOrder::class);
-        $openPurchaseOrders = array_filter($purchaseOrders, function (PurchaseOrder $purchaseOrder) {
-            return $purchaseOrder->isOpen();
-        });
+        $openPurchaseOrders = array_filter(
+            $purchaseOrders,
+            function (PurchaseOrder $purchaseOrder) {
+                return $purchaseOrder->isOpen();
+            }
+        );
 
         if (\count($openPurchaseOrders) > 0) {
             ?>
@@ -109,7 +127,8 @@ final class PurchaseApplication
                         foreach ($openPurchaseOrders as $purchaseOrder) {
                             /** @var PurchaseOrder $purchaseOrder */
                             ?>
-                            <option value="<?php echo $purchaseOrder->id(); ?>"><?php echo $purchaseOrder->id(); ?></option>
+                            <option value="<?php echo $purchaseOrder->id(); ?>"><?php echo $purchaseOrder->id(
+                                ); ?></option>
                             <?php
                         }
                         ?>
@@ -127,6 +146,6 @@ final class PurchaseApplication
             <?php
         }
 
-        include __DIR__ . '/../Common/footer.php';
+        include __DIR__.'/../Common/footer.php';
     }
 }
