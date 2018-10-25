@@ -2,11 +2,9 @@
 declare(strict_types=1);
 
 use Common\MessageTypes;
-use Common\Persistence\Database;
 use Common\Persistence\KeyValueStore;
 use Common\Stream\Stream;
 use Common\Web\HttpApi;
-use Stock\Balance;
 use Symfony\Component\Debug\Debug;
 
 require __DIR__.'/../../vendor/autoload.php';
@@ -43,49 +41,31 @@ Stream::consume(
     function (string $messageType, $data) use ($startAtIndexKey) {
         if (!in_array(
             $messageType,
-            [MessageTypes::PURCHASE_ORDER_RECEIVED, MessageTypes::SALES_ORDER_DELIVERED, MessageTypes::PRODUCT_CREATED, MessageTypes::RESERVATION_ACCEPTED],
+            [MessageTypes::SALES_ORDER_CREATED, MessageTypes::RESERVATION_ACCEPTED],
             true
         )) {
             return false;
         }
 
-        if ($messageType === MessageTypes::PRODUCT_CREATED) {
-            $balance = new Balance($data['id']);
-            Database::persist($balance);
-        }
+        if ($messageType === MessageTypes::SALES_ORDER_CREATED) {
+            echo json_encode($data);
 
-        if ($messageType === MessageTypes::PURCHASE_ORDER_RECEIVED) {
-            /** @var Balance $balance */
-            $balance = Database::retrieve(Balance::class, $data['productId']);
-            $balance->increase($data['quantity']);
-            Database::persist($balance);
-
-            Stream::produce(
-                MessageTypes::STOCK_INCREASED,
+            $result = HttpApi::postFormData(
+                'http://stock_web/makeStockReservation',
                 [
-                    'id' => $balance->id(),
-                    'quantity' => $data['quantity'],
-                ]
-            );
-        }
-
-        if ($messageType === MessageTypes::SALES_ORDER_DELIVERED) {
-            HttpApi::postFormData(
-                'http://stock_web/commitStockReservation',
-                [
-                    'reservationId' => $data['orderId'],
+                    'reservationId' => $data['salesOrderId'],
                     'productId' => $data['productId'],
                     'quantity' => $data['quantity'],
                 ]
             );
+            echo json_encode($result);
         }
 
         if ($messageType === MessageTypes::RESERVATION_ACCEPTED) {
-            Stream::produce(
-                MessageTypes::STOCK_DECREASED,
+            HttpApi::postFormData(
+                'http://sales_web/deliverSalesOrder',
                 [
-                    'id' => $data['productId'],
-                    'quantity' => $data['quantity'],
+                    'salesOrderId' => $data['reservationId'],
                 ]
             );
         }
