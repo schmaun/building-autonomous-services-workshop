@@ -42,27 +42,46 @@ Stream::consume(
     function (string $messageType, $data) use ($startAtIndexKey) {
         if (!in_array(
             $messageType,
-            [MessageTypes::PURCHASE_ORDER_RECEIVED, MessageTypes::SALES_ORDER_DELIVERED, MessageTypes::PRODUCT_CREATED], true
+            [MessageTypes::PURCHASE_ORDER_RECEIVED, MessageTypes::SALES_ORDER_DELIVERED, MessageTypes::PRODUCT_CREATED],
+            true
         )) {
             return false;
         }
 
         if ($messageType === MessageTypes::PRODUCT_CREATED) {
             $balance = new Balance($data['id']);
-        } else {
-            $balance = Database::retrieve(Balance::class, $data['productId']);
-            switch ($messageType) {
-                case MessageTypes::PURCHASE_ORDER_RECEIVED:
-                    $balance->increase($data['quantity']);
-                    break;
-                case MessageTypes::SALES_ORDER_DELIVERED:
-                    $balance->decrease($data['quantity']);
-                    break;
-            }
+            Database::persist($balance);
         }
 
-        Database::persist($balance);
+        if ($messageType === MessageTypes::PURCHASE_ORDER_RECEIVED) {
+            /** @var Balance $balance */
+            $balance = Database::retrieve(Balance::class, $data['productId']);
+            $balance->increase($data['quantity']);
+            Database::persist($balance);
 
+            Stream::produce(
+                MessageTypes::STOCK_INCREASED,
+                [
+                    'id' => $balance->id(),
+                    'quantity' => $data['quantity'],
+                ]
+            );
+        }
+
+        if ($messageType === MessageTypes::SALES_ORDER_DELIVERED) {
+            /** @var Balance $balance */
+            $balance = Database::retrieve(Balance::class, $data['productId']);
+            $balance->decrease($data['quantity']);
+            Database::persist($balance);
+
+            Stream::produce(
+                MessageTypes::STOCK_DECREASED,
+                [
+                    'id' => $balance->id(),
+                    'quantity' => $data['quantity'],
+                ]
+            );
+        }
 
         // do something with the message, or decide to ignore it based on its type
         echo $messageType.': '.json_encode($data)."\n";

@@ -19,6 +19,12 @@ services:
             service: php-cli
         command: php src/Sales/projector.php
 
+    projector_dashboard:
+        extends:
+            file: docker/templates.yml
+            service: php-cli
+        command: php src/Dashboard/projector.php
+
     process_manager:
         extends:
             file: docker/templates.yml

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Dashboard;
 
-use Common\Web\HttpApi;
+use Common\Persistence\Database;
 
 final class DashboardApplication
 {
@@ -14,9 +14,8 @@ final class DashboardApplication
 
     public function indexController(): void
     {
-        $allProducts = HttpApi::fetchDecodedJsonResponse('http://catalog_web/listProducts');
-
-        $stockLevels = HttpApi::fetchDecodedJsonResponse('http://stock_web/stockLevels');
+        /** @var Product[] $allProducts */
+        $allProducts = Database::retrieveAll(Product::class);
 
         include __DIR__ . '/../Common/header.php';
         ?>
@@ -35,9 +34,9 @@ final class DashboardApplication
             foreach ($allProducts as $productData) {
                 ?>
                 <tr>
-                    <td><?php echo htmlspecialchars((string)$productData->productId); ?></td>
-                    <td class="product-name"><?php echo htmlspecialchars($productData->name); ?></td>
-                    <td class="stock-level"><?php echo $stockLevels->{$productData->productId} ?? 0; ?></td>
+                    <td><?php echo htmlspecialchars($productData->id()); ?></td>
+                    <td class="product-name"><?php echo htmlspecialchars($productData->name()); ?></td>
+                    <td class="stock-level"><?php echo $productData->stockLevel(); ?></td>
                 </tr>
                 <?php
             }
