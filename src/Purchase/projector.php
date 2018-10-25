@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Common\MessageTypes;
 use Common\Persistence\Database;
 use Common\Stream\Stream;
 use Purchase\Product;
@@ -24,11 +25,19 @@ Debug::enable();
 Database::deleteAll(Product::class);
 
 Stream::consume(function(string $messageType, $data) {
+    if (!in_array(
+        $messageType,
+        [MessageTypes::PRODUCT_CREATED],
+        true
+    )) {
+        return false;
+    }
+
     /*
      * At this point you can look at the value of `$messageType` and decide
      * if you're going to process this message.
      */
-    if ($messageType === \Common\MessageTypes::PRODUCT_CREATED) {
+    if ($messageType === MessageTypes::PRODUCT_CREATED) {
         $product = new Product($data['id'], $data['name']);
         Database::persist($product);
     }

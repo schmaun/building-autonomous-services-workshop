@@ -25,6 +25,14 @@ Debug::enable();
 Database::deleteAll(Product::class);
 
 Stream::consume(function(string $messageType, $data) {
+    if (!in_array(
+        $messageType,
+        [MessageTypes::PRODUCT_CREATED, MessageTypes::STOCK_INCREASED, MessageTypes::STOCK_DECREASED],
+        true
+    )) {
+        return false;
+    }
+
     /*
      * At this point you can look at the value of `$messageType` and decide
      * if you're going to process this message.
