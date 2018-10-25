@@ -41,7 +41,7 @@ final class SalesApplication
                 $formData = [
                     'purchaseOrderId' => $purchaseOrderId,
                     'productId' => $salesOrder->productId(),
-                    'quantity' => $salesOrder->quantity()
+                    'quantity' => $salesOrder->quantity() - $stockLevelForProduct
                 ];
 
                 // We make an HTTP POST request, basically faking a form submit on this page
