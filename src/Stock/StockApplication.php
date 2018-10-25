@@ -39,13 +39,25 @@ final class StockApplication
         if ($balance->makeReservation($_POST['reservationId'], (int)$_POST['quantity'])) {
             Database::persist($balance);
 
-            Stream::produce(MessageTypes::RESERVATION_ACCEPTED, [
-                'reservationId' => $_POST['reservationId'],
-                'productId' => $balance->id(),
-                'quantity' => (int)$_POST['quantity'],
-            ]);
+            Stream::produce(
+                MessageTypes::RESERVATION_ACCEPTED,
+                [
+                    'reservationId' => $_POST['reservationId'],
+                    'productId' => $balance->id(),
+                    'quantity' => (int)$_POST['quantity'],
+                ]
+            );
+        } else {
+            Stream::produce(
+                MessageTypes::RESERVATION_REJECTED,
+                [
+                    'reservationId' => $_POST['reservationId'],
+                    'productId' => $balance->id(),
+                    'quantity' => (int)$_POST['quantity'],
+                    'missingQuantity' => ($balance->stockLevel() - (int)$_POST['quantity']) * -1,
+                ]
+            );
         }
-
     }
 
     public function commitStockReservationController(): void

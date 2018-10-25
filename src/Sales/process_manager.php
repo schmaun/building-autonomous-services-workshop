@@ -2,9 +2,13 @@
 declare(strict_types=1);
 
 use Common\MessageTypes;
+use Common\Persistence\Database;
 use Common\Persistence\KeyValueStore;
 use Common\Stream\Stream;
 use Common\Web\HttpApi;
+use Ramsey\Uuid\Uuid;
+use Sales\OrderStatus;
+use Sales\SalesOrder;
 use Symfony\Component\Debug\Debug;
 
 require __DIR__.'/../../vendor/autoload.php';
@@ -41,7 +45,7 @@ Stream::consume(
     function (string $messageType, $data) use ($startAtIndexKey) {
         if (!in_array(
             $messageType,
-            [MessageTypes::SALES_ORDER_CREATED, MessageTypes::RESERVATION_ACCEPTED],
+            [MessageTypes::SALES_ORDER_CREATED, MessageTypes::RESERVATION_ACCEPTED, MessageTypes::RESERVATION_REJECTED, MessageTypes::PURCHASE_ORDER_RECEIVED],
             true
         )) {
             return false;
@@ -56,6 +60,9 @@ Stream::consume(
                     'quantity' => $data['quantity'],
                 ]
             );
+
+            $orderStatus = new OrderStatus($data['salesOrderId']);
+            Database::persist($orderStatus);
         }
 
         if ($messageType === MessageTypes::RESERVATION_ACCEPTED) {
@@ -65,6 +72,49 @@ Stream::consume(
                     'salesOrderId' => $data['reservationId'],
                 ]
             );
+        }
+
+        if ($messageType === MessageTypes::RESERVATION_REJECTED) {
+            $purchaseOrderId = (string)Uuid::uuid4()->toString();
+
+            $formData = [
+                'purchaseOrderId' => $purchaseOrderId,
+                'productId' => $data['productId'],
+                'quantity' => $data['missingQuantity'],
+            ];
+
+            HttpApi::postFormData(
+                'http://purchase_web/createPurchaseOrder',
+                $formData
+            );
+
+            /** @var OrderStatus $orderStatus */
+            $orderStatus = Database::retrieve(OrderStatus::class, $data['reservationId']);
+            $orderStatus->setPurchaseOrderId($purchaseOrderId);
+            Database::persist($orderStatus);
+        }
+
+        if ($messageType === MessageTypes::PURCHASE_ORDER_RECEIVED) {
+            $purchaseOrderId = $data['orderId'];
+
+            $orderStatus = Database::findOne(OrderStatus::class, function (OrderStatus $orderStatus) use ($purchaseOrderId) {
+                return $orderStatus->purchaseOrderId() === $purchaseOrderId;
+            });
+
+            if ($orderStatus instanceof OrderStatus) {
+                /** @var SalesOrder $salesOrder */
+                $salesOrder = Database::retrieve(SalesOrder::class, $orderStatus->id());
+
+                sleep(1);
+                HttpApi::postFormData(
+                    'http://stock_web/makeStockReservation',
+                    [
+                        'reservationId' => $orderStatus->id(),
+                        'productId' => $data['productId'],
+                        'quantity' => $salesOrder->quantity(),
+                    ]
+                );
+            }
         }
 
         // do something with the message, or decide to ignore it based on its type

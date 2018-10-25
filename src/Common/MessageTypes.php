@@ -13,4 +13,5 @@ final class MessageTypes
     public const STOCK_DECREASED = 'stock_decreased';
     public const RESERVE_FOR_SALE = 'reserve_for_sale';
     public const RESERVATION_ACCEPTED = 'reservation_accepted';
+    public const RESERVATION_REJECTED = 'reservation_declined';
 }
